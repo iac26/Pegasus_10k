@@ -1,0 +1,32 @@
+This is a skeleton project for ChibiOS on STM32F100 Discovery board
+
+It can be easily modified to suit your particular project.
+
+Project setup
+==============
+
+The default cross-compiler prefix is arm-none-eabi- which matches the
+Mentor Graphics Sourcery G++ (former CodeSourcery) toolchain. This can
+be changed by adjusting the TRGT variable in the Makefile.
+
+The project is targeting the ST Microelectronics STM32F100 Discovery
+board, but it should be easy to modify the build to target other boards
+by changing the Makefile using an existing ChibiOS demo as an example.
+
+The project expects to find ChibiOS source package unpacked (or linked
+to) in the project directory as ChibiOS. You can change this expectation
+in the Makefile by setting the actual location to the CHIBIOS variable.
+
+Different versions of ChibiOS may or may not work, version 2.2.7 was
+used to setup this skeleton project.
+
+ChibiOS sources can be downloaded from the ChibiOS site at
+
+ http://www.chibios.org/
+
+Building
+=========
+
+To build, simply run
+
+ $ make
