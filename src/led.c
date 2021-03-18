@@ -63,8 +63,8 @@ void led_init(void) {
 
 
 	static const PWMConfig led_pwm_config = {
-		100000,   /* 100Khz PWM clock frequency */
-		256,     /* PWM period of 256 ticks */
+		1000000,   /* 1Mhz PWM clock frequency */
+		0xfff,     /* PWM period of 256 ticks */
 		NULL,     /* No callback at the end of a period. */
 		{
 			{PWM_COMPLEMENTARY_OUTPUT_ACTIVE_LOW, NULL}, /* First channel used as an active PWM with no callback. */
