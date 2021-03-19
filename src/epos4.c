@@ -15,7 +15,9 @@
 #include <epos4.h>
 #include <epos4_def.h>
 #include <msv2.h>
+
 #include <ch.h>
+#include <hal.h>
 
 
 /**********************
@@ -23,7 +25,7 @@
  **********************/
 
 
-#define EPOS4_UART	huart6
+#define EPOS4_UART	SD6
 
 
 
@@ -42,8 +44,8 @@
 #define NODE_ID 0x01
 #define DATA_SIZE 4
 
-#define COMM_TIMEOUT pdMS_TO_TICKS(10)
-#define DRIV_TIMEOUT pdMS_TO_TICKS(200)
+#define COMM_TIMEOUT 10
+#define DRIV_TIMEOUT 200
 #define LONG_TIME 0xffff
 
 #define MAX_FRAME_LEN	64
@@ -115,11 +117,9 @@
 
 //semaphore (allows )
 
-static SemaphoreHandle_t epos4_rx_sem = NULL;
-static StaticSemaphore_t epos4_rx_sem_buffer;
+static binary_semaphore_t epos4_rx_sem;
 
-static SemaphoreHandle_t epos4_busy_sem = NULL;
-static StaticSemaphore_t epos4_busy_sem_buffer;
+static binary_semaphore_t epos4_busy_sem;
 
 
 
@@ -143,10 +143,10 @@ static StaticSemaphore_t epos4_busy_sem_buffer;
  **********************/
 
 
-void epos4_global_init() {
+void epos4_global_init(void) {
 	//create rx mutex
-	epos4_rx_sem = xSemaphoreCreateBinaryStatic(&epos4_rx_sem_buffer);
-	epos4_busy_sem = xSemaphoreCreateMutexStatic(&epos4_busy_sem_buffer);
+	chBSemObjectInit(&epos4_rx_sem, FALSE);
+	chBSemObjectInit(&epos4_busy_sem, FALSE);
 	//this semaphore will be epos specific
 }
 
@@ -171,7 +171,7 @@ void epos4_init_bridged(EPOS4_INST_t * epos4, EPOS4_INST_t * parent, uint8_t id)
 
 //mutex for only one access at the same time per serial port
 EPOS4_ERROR_t epos4_readobject(EPOS4_INST_t * epos4, uint16_t index, uint8_t subindex, uint8_t * data, uint32_t * err) {
-	if (xSemaphoreTake(epos4_busy_sem, DRIV_TIMEOUT) == pdTRUE) {
+	if (MSG_OK == chBSemWaitTimeout(&epos4_busy_sem, TIME_MS2I(DRIV_TIMEOUT))) {
 		static uint8_t send_data[READ_OBJECT_LEN*2];
 		static uint16_t length = 0;
 		send_data[0] = epos4->id; //node ID
@@ -180,21 +180,21 @@ EPOS4_ERROR_t epos4_readobject(EPOS4_INST_t * epos4, uint16_t index, uint8_t sub
 		send_data[3] = subindex;
 		length = msv2_create_frame(&epos4->msv2, READ_OBJECT, READ_OBJECT_LEN, send_data);
 		serial_send(&epos4->ser, msv2_tx_data(&epos4->msv2), length);
-		if(xSemaphoreTake(epos4_rx_sem, COMM_TIMEOUT) == pdTRUE) {
+		if(MSG_OK == chBSemWaitTimeout(&epos4_rx_sem, TIME_MS2I(COMM_TIMEOUT))) {
 			uint8_t * recieved_data = msv2_rx_data(&epos4->msv2);
 			*err = recieved_data[0] | (recieved_data[1]<<8) | (recieved_data[2]<<16) | (recieved_data[3]<<24);
 			for(uint8_t i = 0; i < DATA_SIZE; i++){
 				data[i] = recieved_data[4+i];
 			}
 			if(*err == 0) {
-				xSemaphoreGive(epos4_busy_sem);
+				chBSemSignal(&epos4_busy_sem);
 				return EPOS4_SUCCESS;
 			} else {
-				xSemaphoreGive(epos4_busy_sem);
+				chBSemSignal(&epos4_busy_sem);
 				return EPOS4_REMOTE_ERROR;
 			}
 		} else {
-			xSemaphoreGive(epos4_busy_sem);
+			chBSemSignal(&epos4_busy_sem);
 			return EPOS4_TIMEOUT;
 		}
 	} else {
@@ -203,7 +203,7 @@ EPOS4_ERROR_t epos4_readobject(EPOS4_INST_t * epos4, uint16_t index, uint8_t sub
 }
 
 EPOS4_ERROR_t epos4_writeobject(EPOS4_INST_t * epos4, uint16_t index, uint8_t subindex, uint8_t * data, uint32_t * err) {
-	if (xSemaphoreTake(epos4_busy_sem, DRIV_TIMEOUT) == pdTRUE) {
+	if (MSG_OK == chBSemWaitTimeout(&epos4_busy_sem, TIME_MS2I(DRIV_TIMEOUT))) {
 		static uint8_t send_data[WRITE_OBJECT_LEN*2];
 		static uint16_t length = 0;
 		send_data[0] = epos4->id; //node ID
@@ -215,18 +215,18 @@ EPOS4_ERROR_t epos4_writeobject(EPOS4_INST_t * epos4, uint16_t index, uint8_t su
 		}
 		length = msv2_create_frame(&epos4->msv2, WRITE_OBJECT, WRITE_OBJECT_LEN, send_data);
 		serial_send(&epos4->ser, msv2_tx_data(&epos4->msv2), length);
-		if(xSemaphoreTake(epos4_rx_sem, COMM_TIMEOUT) == pdTRUE) {
+		if(MSG_OK == chBSemWaitTimeout(&epos4_rx_sem, TIME_MS2I(COMM_TIMEOUT))) {
 			uint8_t * recieved_data = msv2_rx_data(&epos4->msv2);
 			*err = recieved_data[0] | (recieved_data[1]<<8) | (recieved_data[2]<<16) | (recieved_data[3]<<24);
 			if(*err == 0) {
-				xSemaphoreGive(epos4_busy_sem);
+				chBSemSignal(&epos4_busy_sem);
 				return EPOS4_SUCCESS;
 			} else {
-				xSemaphoreGive(epos4_busy_sem);
+				chBSemSignal(&epos4_busy_sem);
 				return EPOS4_REMOTE_ERROR;
 			}
 		} else {
-			xSemaphoreGive(epos4_busy_sem);
+			chBSemSignal(&epos4_busy_sem);
 			return EPOS4_TIMEOUT;
 		}
 	} else {
@@ -239,7 +239,7 @@ SERIAL_RET_t epos4_decode_fcn(void * inst, uint8_t data) {
 	MSV2_ERROR_t tmp = msv2_decode_fragment(&epos4->msv2, data);
 	//this should release the semaphore corresponding the the right epos board if bridged
 	if(tmp == MSV2_SUCCESS || tmp == MSV2_WRONG_CRC) {
-		xSemaphoreGive(epos4_rx_sem); // one frame has been received!
+		chBSemSignal(&epos4_rx_sem); // one frame has been received!
 	}
 	return tmp;
 }

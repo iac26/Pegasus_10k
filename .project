@@ -32,7 +32,7 @@
 		<link>
 			<name>ChibiOS</name>
 			<type>2</type>
-			<location>/Users/iacopo/Documents/EPFL/RT/Software/ChibiOS_20.3.3</location>
+			<location>C:/Users/Iacopo/Documents/EPFL/ERT/ChibiOS_20.3.3</location>
 		</link>
 	</linkedResources>
 </projectDescription>

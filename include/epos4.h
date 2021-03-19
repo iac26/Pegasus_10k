@@ -108,7 +108,7 @@ extern "C"{
 #endif
 
 //MISC
-void epos4_global_init();
+void epos4_global_init(void);
 void epos4_init(EPOS4_INST_t * epos4, uint8_t id);
 void epos4_init_bridged(EPOS4_INST_t * epos4, EPOS4_INST_t * parent, uint8_t id);
 
@@ -137,8 +137,8 @@ EPOS4_ERROR_t epos4_read_i32(EPOS4_INST_t * epos4, uint16_t index, uint8_t subin
 
 
 // not neccessarly useful...
-#define epos4_write_controlword(epos4, data, err)	epos4_write_u16(epos4, EPOS4_CONTROL_WORD, data, err); osDelay(5)
-#define epos4_read_statusword(epos4, data, err)		osDelay(5); epos4_read_u16(epos4, EPOS4_STATUS_WORD, data, err)
+#define epos4_write_controlword(epos4, data, err)	epos4_write_u16(epos4, EPOS4_CONTROL_WORD, data, err)
+#define epos4_read_statusword(epos4, data, err)		epos4_read_u16(epos4, EPOS4_STATUS_WORD, data, err)
 
 #define epos4_control_shutdown(epos4, err)			epos4_write_controlword(epos4, EPOS4_CW_SHUTDOWN, err)
 #define epos4_control_soenable(epos4, err)			epos4_write_controlword(epos4, EPOS4_CW_SOENABLE, err)
