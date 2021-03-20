@@ -10,8 +10,13 @@
  *	INCLUDES
  **********************/
 
+#include <hal.h>
+#include <ch.h>
+
 #include <serial.h>
 #include <util.h>
+
+
 
 /**********************
  *	CONSTANTS
@@ -39,6 +44,8 @@
 static SERIAL_INST_t * serial_devices[SERIAL_MAX_INST];
 static uint16_t serial_devices_count = 0;
 
+static binary_semaphore_t serial_rx_sem;
+
 
 /**********************
  *	PROTOTYPES
@@ -49,53 +56,75 @@ static uint16_t serial_devices_count = 0;
  *	DECLARATIONS
  **********************/
 
+void rxchar(UARTDriver *uartp, uint16_t c) {
+	for(uint16_t i = 0; i < serial_devices_count; i++) {
+		if(serial_devices[i]->uart == uartp) {
+			util_buffer_u8_add(&serial_devices[i]->bfr, c);
+			chBSemSignalI(&serial_rx_sem);
+			break;
+		}
+	}
+}
 
-void serial_init(SERIAL_INST_t * ser, SerialDriver * uart, void * inst, SERIAL_RET_t (*decode_fcn)(void *, uint8_t)) {
+void serial_global_init(void) {
+	chBSemObjectInit(&serial_rx_sem, TRUE);
+}
+
+
+void serial_init(SERIAL_INST_t * ser, UARTDriver * uart, void * inst, SERIAL_RET_t (*decode_fcn)(void *, uint8_t)) {
+
+
 	ser->id = serial_devices_count;
 	ser->uart = uart;
 	ser->inst = inst;
 	ser->decode_fcn = decode_fcn;
 	util_buffer_u8_init(&ser->bfr, ser->buffer, SERIAL_FIFO_LEN);
 	if(serial_devices_count < SERIAL_MAX_INST) {
-		sdStart(uart, NULL);
 		serial_devices[serial_devices_count] = ser;
 	}
 	serial_devices_count++;
 }
 
 void serial_send(SERIAL_INST_t * ser, uint8_t * data, uint16_t length) {
-	sdAsynchronousWrite(ser->uart, data, length);
+	uartStartSend(ser->uart, length, data);
 }
 
 static THD_WORKING_AREA(serial_thread_wa, 1024);
 static THD_FUNCTION(serial_thread, arg) {
 	(void) arg;
-	chRegSetThreadName(__FUNCTION__);
+	const UARTConfig uart_conf = {
+				NULL,
+				NULL,
+				NULL,
+				rxchar,
+				NULL,
+				NULL,
+				115200,
+				0U,
+				0U,
+				0U
+		};
 
-	for(uint16_t i = 0; i < serial_devices_count; i++) {
-		chEvtRegisterMaskWithFlags(&serial_devices[i]->uart->event, &serial_devices[i]->event, EVENT_MASK(i),
-				CHN_INPUT_AVAILABLE|SD_PARITY_ERROR|SD_FRAMING_ERROR|SD_OVERRUN_ERROR|SD_NOISE_ERROR|SD_BREAK_DETECTED);
+	serial_global_init();
+
+	for(uint8_t i = 0; i < serial_devices_count; i++) {
+		uartStart(serial_devices[i]->uart, &uart_conf);
 	}
 
+
 	for(;;) {
-		eventmask_t evt = chEvtWaitAny(ALL_EVENTS);
-		for(uint16_t i = 0; i < serial_devices_count; i++) {
-			if(evt & EVENT_MASK(i)) {
-				eventflags_t flags = chEvtGetAndClearFlags(&serial_devices[i]->event);
-				if(flags & CHN_INPUT_AVAILABLE) {
-					uint16_t bytes_read = sdAsynchronousRead(serial_devices[i]->uart, serial_devices[i]->buffer, SERIAL_FIFO_LEN);
-					uint16_t j = 0;
-					while(bytes_read--) {
-						serial_devices[i]->decode_fcn(serial_devices[i]->inst, serial_devices[i]->buffer[j++]);
-					}
+		if( chBSemWait(&serial_rx_sem) == MSG_OK ) {
+			for(uint16_t i = 0; i < serial_devices_count; i++) {
+				while(!util_buffer_u8_isempty(&serial_devices[i]->bfr)) {
+					serial_devices[i]->decode_fcn(serial_devices[i]->inst, util_buffer_u8_get(&serial_devices[i]->bfr));
 				}
 			}
 		}
 	}
 }
 
-void start_serial(void) {
-	chThdCreateStatic(serial_thread_wa, sizeof(serial_thread_wa), NORMALPRIO, serial_thread, NULL);
+void serial_start(tprio_t prio) {
+	chThdCreateStatic(serial_thread_wa, sizeof(serial_thread_wa), prio, serial_thread, NULL);
 }
 
 /* END */

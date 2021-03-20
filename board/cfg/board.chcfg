@@ -93,13 +93,13 @@
         Mode="Input"
         Alternate="0" />
       <pin9
-        ID="ARD_D8"
+        ID="SD1_TX"
         Type="PushPull"
         Level="High"
         Speed="Maximum"
         Resistor="PullUp"
         Mode="Input"
-        Alternate="0" />
+        Alternate="7" />
       <pin10
         ID="ARD_D2"
         Type="PushPull"
@@ -231,13 +231,13 @@
         Mode="Input"
         Alternate="0" />
       <pin10
-        ID="ARD_D6"
+        ID="DEBUG_TX"
         Type="PushPull"
         Level="High"
         Speed="Maximum"
         Resistor="PullUp"
-        Mode="Input"
-        Alternate="0" />
+        Mode="Alternate"
+        Alternate="7" />
       <pin11
         ID=""
         Type="PushPull"
@@ -321,29 +321,29 @@
         Mode="Input"
         Alternate="0" />
       <pin5
-        ID=""
+        ID="DEBUG_RX"
         Type="PushPull"
         Level="High"
         Speed="Maximum"
         Resistor="PullUp"
-        Mode="Input"
-        Alternate="0" />
+        Mode="Alternate"
+        Alternate="7" />
       <pin6
-        ID=""
+        ID="MOTOR_TX"
         Type="PushPull"
         Level="High"
         Speed="Maximum"
         Resistor="PullUp"
-        Mode="Input"
-        Alternate="0" />
+        Mode="Alternate"
+        Alternate="8" />
       <pin7
-        ID="ARD_D9"
+        ID="MOTOR_RX"
         Type="PushPull"
         Level="High"
         Speed="Maximum"
         Resistor="PullUp"
-        Mode="Input"
-        Alternate="0" />
+        Mode="Alternate"
+        Alternate="8" ></pin7>
       <pin8
         ID=""
         Type="PushPull"

@@ -25,7 +25,7 @@
  **********************/
 
 
-#define EPOS4_UART	SD6
+#define EPOS4_UART	UARTD6
 
 
 
@@ -145,7 +145,7 @@ static binary_semaphore_t epos4_busy_sem;
 
 void epos4_global_init(void) {
 	//create rx mutex
-	chBSemObjectInit(&epos4_rx_sem, FALSE);
+	chBSemObjectInit(&epos4_rx_sem, TRUE);
 	chBSemObjectInit(&epos4_busy_sem, FALSE);
 	//this semaphore will be epos specific
 }
@@ -163,6 +163,9 @@ void epos4_init(EPOS4_INST_t * epos4, uint8_t id) {
 }
 
 void epos4_init_bridged(EPOS4_INST_t * epos4, EPOS4_INST_t * parent, uint8_t id) {
+	(void)epos4;
+	(void)parent;
+	(void)id;
 	// add a "clause" to the serial decode of the bridge that it checks
 	// which board is communicating then take that into account
 	// when providing "answer" to the requesting driver

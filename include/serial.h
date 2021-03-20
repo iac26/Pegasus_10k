@@ -48,7 +48,7 @@ typedef enum SERIAL_RET {
 
 typedef struct SERIAL_INST {
 	uint32_t id;
-	SerialDriver * uart;
+	UARTDriver * uart;
 	event_listener_t event;
 	void * inst;
 	SERIAL_RET_t (*decode_fcn)(void *, uint8_t);
@@ -71,7 +71,9 @@ extern "C"{
 #endif
 
 
-void serial_init(SERIAL_INST_t * ser, SerialDriver * uart, void * inst, SERIAL_RET_t (*decode_fcn)(void *, uint8_t));
+void serial_init(SERIAL_INST_t * ser, UARTDriver * uart, void * inst, SERIAL_RET_t (*decode_fcn)(void *, uint8_t));
+
+void serial_global_init(void);
 
 void serial_send(SERIAL_INST_t * ser, uint8_t * data, uint16_t length);
 
@@ -80,7 +82,7 @@ void serial_send(SERIAL_INST_t * ser, uint8_t * data, uint16_t length);
  * START SERIAL THREAD
  * Careful, all the serial devices must be registered before starting the thread!!!
  */
-void start_serial(void);
+void serial_start(tprio_t prio);
 
 #ifdef __cplusplus
 } // extern "C"

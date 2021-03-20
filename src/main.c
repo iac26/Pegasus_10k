@@ -15,8 +15,22 @@
 
 
 #include <led.h>
+#include <sensor.h>
+#include <serial.h>
+#include <control.h>
+#include <debug.h>
 
+/**********************
+ *	CONSTANTS
+ **********************/
 
+#define CONTROL_PRIO	NORMALPRIO+3
+#define SERIAL_PRIO		NORMALPRIO+2
+#define SENSOR_PRIO		NORMALPRIO+1
+
+/**********************
+ *	MAIN
+ **********************/
 
 int main(void) {
 
@@ -28,12 +42,20 @@ int main(void) {
     led_init();
     led_set_color(LED_COLOR_TEAL);
 
+    /* Start threads */
+
+
+    sensor_start(SENSOR_PRIO);
+
+    control_start(CONTROL_PRIO);
+
+    debug_start();
+
+    serial_start(SERIAL_PRIO);
+
 
     while (TRUE) {
-        /* Toggle LED3 on/off */
-    	palTogglePad(GPIOA, 15);
-        /* With 500ms intervals */
-        chThdSleepMilliseconds(50);
+        chThdSleepMilliseconds(500);
     }
     return 0;
 }

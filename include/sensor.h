@@ -60,10 +60,10 @@ uint8_t sensor_calib_done(void);
 SENSOR_DATA_t sensor_get_last(void);
 SENSOR_DATA_t sensor_get_last_bfr(uint8_t n);
 
-uint8_t sensor_new_data_storage();
-uint8_t sensor_new_data_can();
+uint8_t sensor_new_data_storage(void);
+uint8_t sensor_new_data_can(void);
 
-void sensor_thread(void * arg);
+void sensor_start(tprio_t prio);
 
 
 #ifdef __cplusplus

@@ -46,6 +46,7 @@
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/Pegasus_10k/ChibiOS/os}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/Pegasus_10k/board}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/Pegasus_10k/ChibiOS/os/rt/include}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/Pegasus_10k/cfg}&quot;"/>
 								</option>
 								<inputType id="com.st.stm32cube.ide.mcu.gnu.managedbuild.tool.c.compiler.input.c.1638977164" superClass="com.st.stm32cube.ide.mcu.gnu.managedbuild.tool.c.compiler.input.c"/>
 							</tool>
@@ -178,4 +179,5 @@
 			<resource resourceType="PROJECT" workspacePath="/Pegasus_10k"/>
 		</configuration>
 	</storageModule>
+	<storageModule moduleId="org.eclipse.cdt.internal.ui.text.commentOwnerProjectMappings"/>
 </cproject>

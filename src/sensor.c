@@ -10,20 +10,37 @@
  *	INCLUDES
  **********************/
 
+#include <ch.h>
+#include <hal.h>
+
 #include <sensor.h>
 #include <lut.h>
-#include <adc.h>
-#include <tim.h>
-#include <main.h>
-#include <cmsis_os.h>
 #include <util.h>
 
 /**********************
  *	CONFIGURATION
  **********************/
 
-#define SENSOR_TIMER	htim3
-#define SENSOR_ADC		hadc1
+#define SENSOR_TIMER	GPTD3
+#define SENSOR_ADC		ADCD1
+
+#define SENSOR_PORT_TEMP_1	GPIOA
+#define SENSOR_PORT_TEMP_2	GPIOA
+#define SENSOR_PORT_TEMP_3	GPIOA
+#define SENSOR_PORT_PRES_1	GPIOC
+#define SENSOR_PORT_PRES_2	GPIOA
+
+#define SENSOR_PIN_TEMP_1	0
+#define SENSOR_PIN_TEMP_2	1
+#define SENSOR_PIN_TEMP_3	3
+#define SENSOR_PIN_PRES_1	0
+#define SENSOR_PIN_PRES_2	2
+
+#define SENSOR_CH_TEMP_1	ADC_CHANNEL_IN0
+#define SENSOR_CH_TEMP_2	ADC_CHANNEL_IN1
+#define SENSOR_CH_TEMP_3	ADC_CHANNEL_IN3
+#define SENSOR_CH_PRES_1	ADC_CHANNEL_IN10
+#define SENSOR_CH_PRES_2	ADC_CHANNEL_IN2
 
 #define SENSOR_HEART_BEAT 1  /* ms */
 
@@ -33,10 +50,15 @@
  *	CONSTANTS
  **********************/
 
+#define ADC_GRP_BUF_DEPTH 1
+#define ADC_GRP_NUM_CHANNELS 5
+
+
+
 #define DT_THRESH		500 /* 0.1deg */
 
 #define SAMPLING_TIME 	20 //ms
-#define ADC_FREQ		3200 //Hz
+
 #define NB_SAMPLES		32
 
 #define SAMPLE_BUFFER_LEN	(256)
@@ -47,8 +69,10 @@
 
 #define CALIBRATION_CYCLES		(64)
 
+
+#define ADC_TIMER_FREQ			(10000000)
 //this needs to be done correctly
-#define MS_2_SENSOR_TIMER(ms)	72e6*(ms)/1000
+#define MS_2_SENSOR_TIMER(ms)	ADC_TIMER_FREQ*(ms)/1000
 
 /*
  * KULITE CALIBRATION DATA
@@ -84,8 +108,6 @@
 UTIL_GENERATE_BUFFER(SENSOR_DATA_t, SENSOR)
 
 
-#define FLOAT_2_FIX_20_12(f)	((uint32_t) ((f) * (1<<12)))
-
 
 /**********************
  *	TYPEDEFS
@@ -106,7 +128,7 @@ typedef enum SENSOR_TYPE{ //Same order as adc in ioc
  *	VARIABLES
  **********************/
 
-static uint16_t adc_buffer[NB_SENSOR];
+static adcsample_t adc_buffer[CACHE_SIZE_ALIGN(adcsample_t, ADC_GRP_NUM_CHANNELS * ADC_GRP_BUF_DEPTH)];
 
 static UTIL_BUFFER_SENSOR_t sample_bfr;
 static SENSOR_DATA_t sample_buffer[SAMPLE_BUFFER_LEN];
@@ -141,8 +163,8 @@ static void sensor_init(void);
 /*
  * ADC ISR
  */
-void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc){
-	if(hadc->Instance == SENSOR_ADC.Instance) {
+void adc_callback(ADCDriver *adcp){
+	if(adcp == &SENSOR_ADC) {
 		//put samples into a fifo buffer
 		//samples are preprocessed
 		SENSOR_DATA_t data;
@@ -171,17 +193,79 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc){
 	}
 }
 
+static void adc_error_callback(ADCDriver *adcp, adcerror_t err) {
+	if(adcp == &SENSOR_ADC) {
+		(void) err;
+		//Do something in case of error
+	}
+}
+
 
 
 static void sensor_init(void) {
+	//PIN SETUP done with the cfg tool
 
-	SENSOR_TIMER->tim->ARR = MS_2_SENSOR_TIMER(ADC_HEART_BEAT);
-	HAL_TIM_OC_Start(&SENSOR_TIMER, TIM_CHANNEL_1);
-	HAL_ADC_Start_DMA(&SENSOR_ADC, (uint32_t*)adc_buffer, NB_SENSOR);
+	/*
+	palSetGroupMode(GPIOA, PAL_PORT_BIT(SENSOR_PIN_TEMP_1) | PAL_PORT_BIT(SENSOR_PIN_TEMP_2) |
+					PAL_PORT_BIT(SENSOR_PIN_TEMP_3) | PAL_PORT_BIT(SENSOR_PIN_PRES_2),
+	                0, PAL_MODE_INPUT_ANALOG);
+	palSetGroupMode(GPIOC, PAL_PORT_BIT(SENSOR_PIN_PRES_1),
+		           	0, PAL_MODE_INPUT_ANALOG);
+	*/
+
+	static const ADCConfig adc_conf = {
+
+	};
+
+	static const ADCConversionGroup adc_conv_conf = {
+	  .circular     = TRUE,
+	  .num_channels = ADC_GRP_NUM_CHANNELS,
+	  .end_cb       = adc_callback,
+	  .error_cb     = adc_error_callback,
+	  .cr1          = 0U,
+	  .cr2          = ADC_CR2_EXTEN_RISING |
+	                  ADC_CR2_EXTSEL_SRC(0b1000),  /* TIM3_TRGO */
+	  .smpr1 		= ADC_SMPR1_SMP_AN10(ADC_SAMPLE_15),	/* PRES_1 */
+	  .smpr2 		= ADC_SMPR2_SMP_AN0(ADC_SAMPLE_15) |	/* TEMP_1 */
+			  	  	  ADC_SMPR2_SMP_AN1(ADC_SAMPLE_15) |	/* TEMP_2 */
+					  ADC_SMPR2_SMP_AN2(ADC_SAMPLE_15) |	/* PRES_2 */
+					  ADC_SMPR2_SMP_AN3(ADC_SAMPLE_15),		/* TEMP_3 */
+
+	  .ltr 			= 0,
+	  .htr 			= 0xfff,
+
+	  .sqr1			= ADC_SQR1_NUM_CH(ADC_GRP_NUM_CHANNELS),
+	  .sqr2			= 0U,
+	  .sqr3			= ADC_SQR3_SQ1_N(SENSOR_CH_TEMP_1) |
+	  	  	  	  	  ADC_SQR3_SQ2_N(SENSOR_CH_TEMP_2) |
+					  ADC_SQR3_SQ3_N(SENSOR_CH_TEMP_3) |
+					  ADC_SQR3_SQ4_N(SENSOR_CH_PRES_1) |
+					  ADC_SQR3_SQ5_N(SENSOR_CH_PRES_2),
 
 
+	};
+
+	static const GPTConfig gpt_conf = {
+		.frequency    =  ADC_TIMER_FREQ,
+		.callback     =  NULL,
+		.cr2          =  (0b10<<4U),   /* MMS = 010 = TRGO on Update Event.    */
+		.dier         =  0U
+	};
+
+	//Init fifo buffers
 	util_buffer_SENSOR_init(&sample_bfr, sample_buffer, SAMPLE_BUFFER_LEN);
 	util_buffer_SENSOR_init(&filter_bfr, filter_buffer, FILTER_BUFFER_LEN);
+
+	adcStart(&SENSOR_ADC, &adc_conf);
+
+	gptStart(&SENSOR_TIMER, &gpt_conf);
+
+	adcStartConversion(&SENSOR_ADC, &adc_conv_conf, adc_buffer, ADC_GRP_BUF_DEPTH);
+
+	gptStartContinuous(&SENSOR_TIMER, MS_2_SENSOR_TIMER(ADC_HEART_BEAT));
+
+
+
 
 }
 
@@ -214,21 +298,19 @@ uint8_t sensor_new_data_can() {
 	return tmp;
 }
 
-void sensor_thread(void * arg) {
+static THD_WORKING_AREA(sensor_thread_wa, 1024);
+static THD_FUNCTION(sensor_thread, arg) {
+	(void) arg;
 	//perform averaging on the fifo contents
 	//perform data processing (Kalman??)
 	//save data to internal storage (release semaphore for the storage thread)
 	//send data through CAN --> here or another thread..
-	static TickType_t last_wake_time;
-	static const TickType_t period = pdMS_TO_TICKS(SENSOR_HEART_BEAT);
-
-	last_wake_time = xTaskGetTickCount();
 
 	sensor_init();
 
-
-
 	for(;;) {
+
+		volatile systime_t thread_time = chVTGetSystemTime();
 
 		//TIMING TEST
 		//HAL_GPIO_TogglePin(BUZZER_GPIO_Port, BUZZER_Pin);
@@ -236,12 +318,12 @@ void sensor_thread(void * arg) {
 		//second processing i.e. empty buffer and average all samples
 		//trend prediction
 		//average value of each sample collected in the fifo buffer
-		uint16_t temp_count[3] = {0};
-		int32_t temp_val[3] = {0};
-		uint16_t pres_count = 0;
-		int32_t pres_val[2] = {0};
+		volatile uint16_t temp_count[3] = {0};
+		volatile int32_t temp_val[3] = {0};
+		volatile uint16_t pres_count = 0;
+		volatile int32_t pres_val[2] = {0};
 		while(!util_buffer_SENSOR_isempty(&sample_bfr)) {
-			SENSOR_DATA_t data = util_buffer_SENSOR_get(&sample_bfr);
+			volatile SENSOR_DATA_t data = util_buffer_SENSOR_get(&sample_bfr);
 			pres_val[0] += data.pressure_1;
 			pres_val[1] += data.pressure_2;
 			pres_count += 1;
@@ -273,25 +355,29 @@ void sensor_thread(void * arg) {
 		} else {
 			//temp 3 error
 		}
-		SENSOR_DATA_t data = {
+		volatile SENSOR_DATA_t data = {
 				pres_val[0],
 				pres_val[1],
 				{
 						temp_val[0],
 						temp_val[1],
 						temp_val[2]
-				}
+				},
+				{
+					0, 0, 0
+				},
+				0
 		};
 
-		data.time = HAL_GetTick();
+		data.time = TIME_I2MS(chVTGetSystemTime());
 
 
 
 		// this is while I build the filtering functions
-		static uint16_t h = 0;
-		static int32_t d_temperature[3] = {0};
+		static volatile uint16_t h = 0;
+		static volatile int32_t d_temperature[3] = {0};
 
-		h = last_data.time - data.time;
+		h = data.time - last_data.time;
 		if(h) {
 			for(uint8_t i = 0; i < 3; i++) {
 				int32_t next = last_data.temperature[i] + d_temperature[i]*h;
@@ -342,8 +428,12 @@ void sensor_thread(void * arg) {
 
 		//Results accessible from DEBUG UART
 
-		vTaskDelayUntil( &last_wake_time, period );
+		chThdSleepUntilWindowed(thread_time, thread_time+TIME_MS2I(SENSOR_HEART_BEAT));
 	}
+}
+
+void sensor_start(tprio_t prio) {
+	chThdCreateStatic(sensor_thread_wa, sizeof(sensor_thread_wa), prio, sensor_thread, NULL);
 }
 
 
