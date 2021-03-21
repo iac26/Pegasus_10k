@@ -118,6 +118,8 @@ static THD_FUNCTION(control_thread, arg) {
 
 	(void) arg;
 
+	chRegSetThreadName(__FUNCTION__);
+
 	systime_t thread_time = chVTGetSystemTime();
 
 	init_control(&control);

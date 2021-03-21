@@ -38,12 +38,8 @@ int main(void) {
     halInit();
     chSysInit();
 
-    /* Init RGB LED */
+    /* Init everything*/
     led_init();
-    led_set_color(LED_COLOR_TEAL);
-
-    /* Start threads */
-
 
     sensor_start(SENSOR_PRIO);
 
@@ -53,9 +49,12 @@ int main(void) {
 
     serial_start(SERIAL_PRIO);
 
+    thread_reference_t main_thread_ref;
 
     while (TRUE) {
-        chThdSleepMilliseconds(500);
+    	chSysLock();
+		chThdSuspendS(&main_thread_ref);
+		chSysUnlock();
     }
     return 0;
 }

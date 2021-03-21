@@ -306,6 +306,7 @@ uint8_t sensor_new_data_can() {
 static THD_WORKING_AREA(sensor_thread_wa, 1024);
 static THD_FUNCTION(sensor_thread, arg) {
 	(void) arg;
+	chRegSetThreadName(__FUNCTION__);
 	//perform averaging on the fifo contents
 	//perform data processing (Kalman??)
 	//save data to internal storage (release semaphore for the storage thread)

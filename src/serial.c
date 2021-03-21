@@ -114,6 +114,7 @@ void serial_send(SERIAL_INST_t * ser, uint8_t * data, uint16_t length) {
 static THD_WORKING_AREA(serial_thread_wa, 1024);
 static THD_FUNCTION(serial_thread, arg) {
 	(void) arg;
+	chRegSetThreadName(__FUNCTION__);
 
 	serial_global_init();
 
