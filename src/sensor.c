@@ -308,9 +308,11 @@ static THD_FUNCTION(sensor_thread, arg) {
 
 	sensor_init();
 
+	systime_t thread_time = chVTGetSystemTime();
+
 	for(;;) {
 
-		volatile systime_t thread_time = chVTGetSystemTime();
+
 
 		//TIMING TEST
 		//HAL_GPIO_TogglePin(BUZZER_GPIO_Port, BUZZER_Pin);
@@ -428,7 +430,7 @@ static THD_FUNCTION(sensor_thread, arg) {
 
 		//Results accessible from DEBUG UART
 
-		chThdSleepUntilWindowed(thread_time, thread_time+TIME_MS2I(SENSOR_HEART_BEAT));
+		thread_time = chThdSleepUntilWindowed(thread_time, thread_time+TIME_MS2I(SENSOR_HEART_BEAT));
 	}
 }
 

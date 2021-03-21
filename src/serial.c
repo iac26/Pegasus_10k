@@ -46,6 +46,8 @@ static uint16_t serial_devices_count = 0;
 
 static binary_semaphore_t serial_rx_sem;
 
+static thread_reference_t serial_rx = NULL;
+
 
 /**********************
  *	PROTOTYPES
@@ -60,7 +62,9 @@ void rxchar(UARTDriver *uartp, uint16_t c) {
 	for(uint16_t i = 0; i < serial_devices_count; i++) {
 		if(serial_devices[i]->uart == uartp) {
 			util_buffer_u8_add(&serial_devices[i]->bfr, c);
-			chBSemSignalI(&serial_rx_sem);
+			chSysLockFromISR();
+			chThdResumeI(&serial_rx, MSG_OK);
+			chSysUnlockFromISR();
 			break;
 		}
 	}
@@ -72,8 +76,6 @@ void serial_global_init(void) {
 
 
 void serial_init(SERIAL_INST_t * ser, UARTDriver * uart, void * inst, SERIAL_RET_t (*decode_fcn)(void *, uint8_t)) {
-
-
 	ser->id = serial_devices_count;
 	ser->uart = uart;
 	ser->inst = inst;
@@ -111,9 +113,11 @@ static THD_FUNCTION(serial_thread, arg) {
 		uartStart(serial_devices[i]->uart, &uart_conf);
 	}
 
-
 	for(;;) {
-		if( chBSemWait(&serial_rx_sem) == MSG_OK ) {
+		chSysLock();
+		msg_t msg = chThdSuspendS(&serial_rx);
+		chSysUnlock();
+		if( msg == MSG_OK ) {
 			for(uint16_t i = 0; i < serial_devices_count; i++) {
 				while(!util_buffer_u8_isempty(&serial_devices[i]->bfr)) {
 					serial_devices[i]->decode_fcn(serial_devices[i]->inst, util_buffer_u8_get(&serial_devices[i]->bfr));

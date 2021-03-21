@@ -118,7 +118,7 @@ static THD_FUNCTION(control_thread, arg) {
 
 	(void) arg;
 
-	volatile systime_t thread_time = chVTGetSystemTime();
+	systime_t thread_time = chVTGetSystemTime();
 
 	init_control(&control);
 
@@ -181,7 +181,7 @@ static THD_FUNCTION(control_thread, arg) {
 			control.state = CS_ERROR;
 			break;
 		}
-		chThdSleepUntilWindowed(thread_time, thread_time+TIME_MS2I(CONTROL_HEART_BEAT));
+		thread_time = chThdSleepUntilWindowed(thread_time, thread_time+TIME_MS2I(CONTROL_HEART_BEAT));
 	}
 }
 
