@@ -50,6 +50,8 @@
  *	CONSTANTS
  **********************/
 
+
+
 #define ADC_GRP_BUF_DEPTH 1
 #define ADC_GRP_NUM_CHANNELS 5
 
@@ -91,6 +93,7 @@
 
 
 #define FILTER_LEN	5
+
 
 
 /**********************
@@ -150,8 +153,8 @@ static uint8_t new_data_can;
  **********************/
 
 static void sensor_init(void);
-
-
+void adc_callback(ADCDriver *adcp);
+static void adc_error_callback(ADCDriver *adcp, adcerror_t err);
 
 
 
@@ -159,11 +162,50 @@ static void sensor_init(void);
  *	DECLARATIONS
  **********************/
 
+const ADCConfig adc_conf = {
+
+};
+
+const ADCConversionGroup adc_conv_conf = {
+  .circular     = TRUE,
+  .num_channels = ADC_GRP_NUM_CHANNELS,
+  .end_cb       = adc_callback,
+  .error_cb     = adc_error_callback,
+  .cr1          = 0U,
+  .cr2          = ADC_CR2_EXTEN_RISING |
+				  ADC_CR2_EXTSEL_SRC(0b1000),  /* TIM3_TRGO */
+  .smpr1 		= ADC_SMPR1_SMP_AN10(ADC_SAMPLE_15),	/* PRES_1 */
+  .smpr2 		= ADC_SMPR2_SMP_AN0(ADC_SAMPLE_15) |	/* TEMP_1 */
+				  ADC_SMPR2_SMP_AN1(ADC_SAMPLE_15) |	/* TEMP_2 */
+				  ADC_SMPR2_SMP_AN2(ADC_SAMPLE_15) |	/* PRES_2 */
+				  ADC_SMPR2_SMP_AN3(ADC_SAMPLE_15),		/* TEMP_3 */
+
+  .ltr 			= 0,
+  .htr 			= 0xfff,
+
+  .sqr1			= ADC_SQR1_NUM_CH(ADC_GRP_NUM_CHANNELS),
+  .sqr2			= 0U,
+  .sqr3			= ADC_SQR3_SQ1_N(SENSOR_CH_TEMP_1) |
+				  ADC_SQR3_SQ2_N(SENSOR_CH_TEMP_2) |
+				  ADC_SQR3_SQ3_N(SENSOR_CH_TEMP_3) |
+				  ADC_SQR3_SQ4_N(SENSOR_CH_PRES_1) |
+				  ADC_SQR3_SQ5_N(SENSOR_CH_PRES_2),
+
+
+};
+
+const GPTConfig gpt_conf = {
+	.frequency    =  ADC_TIMER_FREQ,
+	.callback     =  NULL,
+	.cr2          =  (0b10<<4U),   /* MMS = 010 = TRGO on Update Event.    */
+	.dier         =  0U
+};
+
 
 /*
  * ADC ISR
  */
-void adc_callback(ADCDriver *adcp){
+void adc_callback(ADCDriver *adcp) {
 	if(adcp == &SENSOR_ADC) {
 		//put samples into a fifo buffer
 		//samples are preprocessed
@@ -213,44 +255,7 @@ static void sensor_init(void) {
 		           	0, PAL_MODE_INPUT_ANALOG);
 	*/
 
-	static const ADCConfig adc_conf = {
 
-	};
-
-	static const ADCConversionGroup adc_conv_conf = {
-	  .circular     = TRUE,
-	  .num_channels = ADC_GRP_NUM_CHANNELS,
-	  .end_cb       = adc_callback,
-	  .error_cb     = adc_error_callback,
-	  .cr1          = 0U,
-	  .cr2          = ADC_CR2_EXTEN_RISING |
-	                  ADC_CR2_EXTSEL_SRC(0b1000),  /* TIM3_TRGO */
-	  .smpr1 		= ADC_SMPR1_SMP_AN10(ADC_SAMPLE_15),	/* PRES_1 */
-	  .smpr2 		= ADC_SMPR2_SMP_AN0(ADC_SAMPLE_15) |	/* TEMP_1 */
-			  	  	  ADC_SMPR2_SMP_AN1(ADC_SAMPLE_15) |	/* TEMP_2 */
-					  ADC_SMPR2_SMP_AN2(ADC_SAMPLE_15) |	/* PRES_2 */
-					  ADC_SMPR2_SMP_AN3(ADC_SAMPLE_15),		/* TEMP_3 */
-
-	  .ltr 			= 0,
-	  .htr 			= 0xfff,
-
-	  .sqr1			= ADC_SQR1_NUM_CH(ADC_GRP_NUM_CHANNELS),
-	  .sqr2			= 0U,
-	  .sqr3			= ADC_SQR3_SQ1_N(SENSOR_CH_TEMP_1) |
-	  	  	  	  	  ADC_SQR3_SQ2_N(SENSOR_CH_TEMP_2) |
-					  ADC_SQR3_SQ3_N(SENSOR_CH_TEMP_3) |
-					  ADC_SQR3_SQ4_N(SENSOR_CH_PRES_1) |
-					  ADC_SQR3_SQ5_N(SENSOR_CH_PRES_2),
-
-
-	};
-
-	static const GPTConfig gpt_conf = {
-		.frequency    =  ADC_TIMER_FREQ,
-		.callback     =  NULL,
-		.cr2          =  (0b10<<4U),   /* MMS = 010 = TRGO on Update Event.    */
-		.dier         =  0U
-	};
 
 	//Init fifo buffers
 	util_buffer_SENSOR_init(&sample_bfr, sample_buffer, SAMPLE_BUFFER_LEN);

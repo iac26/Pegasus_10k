@@ -49,14 +49,34 @@ static binary_semaphore_t serial_rx_sem;
 static thread_reference_t serial_rx = NULL;
 
 
+
+
 /**********************
  *	PROTOTYPES
  **********************/
 
+void rxchar(UARTDriver *uartp, uint16_t c);
 
 /**********************
  *	DECLARATIONS
  **********************/
+
+const UARTConfig uart_conf = {
+		NULL,
+		NULL,
+		NULL,
+		rxchar,
+		NULL,
+		NULL,
+		115200,
+		0U,
+		0U,
+		0U
+};
+
+/*
+ * TODO: use hardware FIFO
+ */
 
 void rxchar(UARTDriver *uartp, uint16_t c) {
 	for(uint16_t i = 0; i < serial_devices_count; i++) {
@@ -94,18 +114,6 @@ void serial_send(SERIAL_INST_t * ser, uint8_t * data, uint16_t length) {
 static THD_WORKING_AREA(serial_thread_wa, 1024);
 static THD_FUNCTION(serial_thread, arg) {
 	(void) arg;
-	const UARTConfig uart_conf = {
-				NULL,
-				NULL,
-				NULL,
-				rxchar,
-				NULL,
-				NULL,
-				115200,
-				0U,
-				0U,
-				0U
-		};
 
 	serial_global_init();
 
